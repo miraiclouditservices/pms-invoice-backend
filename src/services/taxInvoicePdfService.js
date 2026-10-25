@@ -66,39 +66,52 @@ function generateTaxInvoicePdf(invoice) {
       y += 38;
 
       // 2. BUSINESS INFO (LEFT) & INVOICE DETAILS (RIGHT)
-      const bizX = 36;
+      const bizX = 46;
       const invX = 320;
       const startY = y;
 
-      // Left: Business details
-      doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(11).text(biz.legalName || biz.displayName || 'Business Name', bizX, y);
-      y += 14;
+      // Left: Logo + Business details
+      const logoPaths = [
+        path.join(__dirname, '../assets/mirai_logo.png'),
+        path.join(__dirname, '../../public/assets/mirai_logo.png'),
+        'd:/PMS-APPLICATION/backend-pms/src/assets/mirai_logo.png'
+      ];
+      const validLogoPath = logoPaths.find(p => fs.existsSync(p));
+      let currentBizY = y;
+      if (validLogoPath) {
+        doc.image(validLogoPath, bizX, currentBizY, { height: 38 });
+        currentBizY += 44;
+      } else {
+        doc.fillColor('#0f172a').font('Helvetica-Bold').fontSize(11).text(biz.legalName || biz.displayName || 'Business Name', bizX, currentBizY);
+        currentBizY += 14;
+      }
+
       doc.font('Helvetica').fontSize(8.5).fillColor(secondaryColor);
       
       const bizAddressParts = [biz.address, biz.addressLine2, biz.city, `${biz.state} - ${biz.postalCode}`, biz.country].filter(Boolean);
       bizAddressParts.forEach(line => {
-        doc.text(line, bizX, y);
-        y += 11;
+        doc.text(line, bizX, currentBizY);
+        currentBizY += 11;
       });
 
       if (biz.phone) {
-        doc.text(`Phone: ${biz.phone}`, bizX, y);
-        y += 11;
+        doc.text(`Phone: ${biz.phone}`, bizX, currentBizY);
+        currentBizY += 11;
       }
       if (biz.email) {
-        doc.text(`Email: ${biz.email}`, bizX, y);
-        y += 11;
+        doc.text(`Email: ${biz.email}`, bizX, currentBizY);
+        currentBizY += 11;
       }
       if (biz.gstin) {
-        doc.font('Helvetica-Bold').fillColor('#0f172a').text(`GSTIN: ${biz.gstin}`, bizX, y);
-        y += 11;
+        doc.font('Helvetica-Bold').fillColor('#0f172a').text(`GSTIN: ${biz.gstin}`, bizX, currentBizY);
+        currentBizY += 11;
       }
       if (biz.pan) {
-        doc.font('Helvetica').fillColor(secondaryColor).text(`PAN: ${biz.pan}`, bizX, y);
-        y += 11;
+        doc.font('Helvetica').fillColor(secondaryColor).text(`PAN: ${biz.pan}`, bizX, currentBizY);
+        currentBizY += 11;
       }
 
-      const leftEndY = y;
+      const leftEndY = currentBizY;
 
       // Right: Invoice Metadata Box
       let rY = startY;
@@ -117,33 +130,7 @@ function generateTaxInvoicePdf(invoice) {
       renderMetaRow('Place of Supply:', invoice.placeOfSupply || biz.state || '-');
       renderMetaRow('Tax Treatment:', (invoice.taxTreatment || 'INTRA_STATE').replace('_', ' '));
 
-      y = Math.max(leftEndY, rY) + 10;
-
-      // 3. BUYER (BILLED TO) BOX
-      doc.rect(36, y, 523, 18).fill('#e2e8f0');
-      doc.fillColor('#1e293b').font('Helvetica-Bold').fontSize(9).text('BUYER (BILLED TO)', 42, y + 4);
-      y += 22;
-
-      doc.rect(36, y, 523, 50).stroke(borderColor);
-      let bY = y + 5;
-      doc.font('Helvetica-Bold').fontSize(9).fillColor('#0f172a').text(cust.customerName || 'Customer Name', 44, bY);
-      if (cust.companyName) {
-        doc.font('Helvetica').fontSize(8.5).fillColor(secondaryColor).text(` (${cust.companyName})`, 44 + doc.widthOfString(cust.customerName || '') + 5, bY);
-      }
-      bY += 12;
-
-      const custAddr = [cust.billingAddress, cust.city, `${cust.state || ''} ${cust.postalCode || ''}`].filter(Boolean).join(', ');
-      doc.font('Helvetica').fontSize(8.5).fillColor(secondaryColor).text(custAddr || 'Address details', 44, bY);
-      bY += 12;
-
-      const custTaxInfo = [];
-      if (cust.gstin) custTaxInfo.push(`GSTIN: ${cust.gstin}`);
-      if (cust.pan) custTaxInfo.push(`PAN: ${cust.pan}`);
-      if (cust.phone) custTaxInfo.push(`Phone: ${cust.phone}`);
-      if (cust.email) custTaxInfo.push(`Email: ${cust.email}`);
-      doc.text(custTaxInfo.join('  |  ') || '-', 44, bY);
-
-      y += 58;
+      y = Math.max(leftEndY, rY) + 14;
 
       // 4. ITEMS TABLE
       // Column widths: Total 523
@@ -219,16 +206,16 @@ function generateTaxInvoicePdf(invoice) {
       const rightTotalsW = 214;
 
       // Words on left
-      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#1e293b').text('AMOUNT IN WORDS:', 36, totalsBoxY);
-      doc.font('Helvetica-Oblique').fontSize(8.5).fillColor(primaryColor).text(invoice.amountInWords || 'Zero Rupees Only', 36, totalsBoxY + 12, { width: leftWordsW });
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#1e293b').text('AMOUNT IN WORDS:', 44, totalsBoxY);
+      doc.font('Helvetica-Oblique').fontSize(8.5).fillColor(primaryColor).text(invoice.amountInWords || 'Zero Rupees Only', 44, totalsBoxY + 12, { width: leftWordsW - 10 });
 
       // Payment Link box if available
       if (invoice.cashfreePaymentLink) {
         const linkY = totalsBoxY + 36;
-        doc.rect(36, linkY, leftWordsW, 36).fillAndStroke('#eff6ff', '#bfdbfe');
-        doc.fillColor(primaryColor).font('Helvetica-Bold').fontSize(8.5).text('ONLINE PAYMENT AVAILABLE:', 42, linkY + 4);
-        doc.fillColor('#2563eb').font('Helvetica').fontSize(7.5).text(invoice.cashfreePaymentLink, 42, linkY + 18, {
-          width: leftWordsW - 12,
+        doc.rect(44, linkY, leftWordsW - 10, 36).fillAndStroke('#eff6ff', '#bfdbfe');
+        doc.fillColor(primaryColor).font('Helvetica-Bold').fontSize(8.5).text('ONLINE PAYMENT AVAILABLE:', 50, linkY + 4);
+        doc.fillColor('#2563eb').font('Helvetica').fontSize(7.5).text(invoice.cashfreePaymentLink, 50, linkY + 18, {
+          width: leftWordsW - 22,
           link: invoice.cashfreePaymentLink,
           underline: true
         });
@@ -344,6 +331,10 @@ function generateTaxInvoicePdf(invoice) {
       doc.font('Helvetica-Oblique').fontSize(6.5).fillColor('#64748b').text('[ Digitally Generated ]', 385, sigY + 16, { width: 166, align: 'center' });
       const signName = biz.authorizedSignatory?.name || 'Authorized Signatory';
       doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0f172a').text(signName, 385, sigY + 30, { width: 166, align: 'center' });
+
+      // 7. FULL INVOICE OUTER BORDER
+      const totalH = (footY + boxH) - 36;
+      doc.rect(36, 36, 523, totalH).lineWidth(1.2).stroke('#94a3b8');
 
       doc.end();
     } catch (err) {

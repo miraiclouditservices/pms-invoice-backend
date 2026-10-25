@@ -29,7 +29,7 @@ function createTransporter() {
 }
 
 const transporter = createTransporter();
-const DEFAULT_FROM = process.env.SMTP_FROM || (process.env.SMTP_USER ? `"Mirai Billing" <${process.env.SMTP_USER}>` : '"Billing Team" <billing@miraiapps.com>');
+const DEFAULT_FROM = process.env.SMTP_FROM || (process.env.SMTP_USER ? `"Mirai Cloud IT Services" <${process.env.SMTP_USER}>` : '"Mirai Cloud IT Services" <info@miraiclouditservices.com>');
 
 function formatCurrency(amount) {
   return '₹' + Number(amount || 0).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });

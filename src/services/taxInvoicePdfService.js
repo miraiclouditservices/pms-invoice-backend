@@ -1,4 +1,6 @@
 const PDFDocument = require('pdfkit');
+const fs = require('fs');
+const path = require('path');
 
 /**
  * Formats numbers into Indian currency display format
@@ -282,8 +284,8 @@ function generateTaxInvoicePdf(invoice) {
 
       y = Math.max(totalsBoxY + 85, sY) + 12;
 
-      // 6. FOOTER (Bank details, Terms & Signatory)
-      if (y > 670) {
+      // 6. FOOTER (3 Clean Non-Colliding Cards: Bank Details, UPI QR Scan & Pay, Terms/Signatory)
+      if (y > 640) {
         doc.addPage();
         y = 36;
       }
@@ -293,42 +295,55 @@ function generateTaxInvoicePdf(invoice) {
 
       const footY = y;
       const bankDetails = biz.bankDetails || {};
-      
-      // Bank details
-      if (bankDetails.showOnInvoice && bankDetails.accountNumber) {
-        doc.font('Helvetica-Bold').fontSize(8).fillColor('#1e293b').text('BANK TRANSFER DETAILS:', 36, footY);
-        let bky = footY + 11;
-        doc.font('Helvetica').fontSize(7.5).fillColor(secondaryColor);
-        doc.text(`Bank: ${bankDetails.bankName || '-'} | Branch: ${bankDetails.branch || '-'}`, 36, bky);
-        bky += 10;
-        doc.text(`A/C Holder: ${bankDetails.accountHolderName || biz.legalName || '-'}`, 36, bky);
-        bky += 10;
-        doc.font('Helvetica-Bold').fillColor('#0f172a').text(`A/C No: ${bankDetails.accountNumber} | IFSC: ${bankDetails.ifscCode}`, 36, bky);
+      const boxH = 135;
+
+      // Card 1: Bank Transfer Details (Left, x: 36, w: 180)
+      doc.rect(36, footY, 180, boxH).fillAndStroke('#f8fafc', borderColor);
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#1e3a8a').text('BANK TRANSFER DETAILS', 44, footY + 8, { width: 164 });
+
+      let bky = footY + 22;
+      const renderBankRow = (label, val) => {
+        doc.font('Helvetica').fontSize(7.5).fillColor('#64748b').text(label, 44, bky, { width: 56 });
+        doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0f172a').text(val || '-', 100, bky, { width: 110 });
+        bky += 14;
+      };
+
+      renderBankRow('Bank Name:', bankDetails.bankName || 'IDFC FIRST');
+      renderBankRow('Branch:', bankDetails.branch || 'KAVURI HILLS, HYD');
+      renderBankRow('A/C Holder:', bankDetails.accountHolderName || biz.legalName || 'MIRAI CLOUD IT SERVICES');
+      renderBankRow('A/C Number:', bankDetails.accountNumber || '10228801226');
+      renderBankRow('IFSC Code:', bankDetails.ifscCode || 'IDFB0080231');
+
+      // Card 2: Scan & Pay UPI (Center, x: 224, w: 145)
+      doc.rect(224, footY, 145, boxH).fillAndStroke('#f8fafc', borderColor);
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#1e3a8a').text('SCAN & PAY (UPI)', 224, footY + 8, { width: 145, align: 'center' });
+
+      // Embed UPI QR Code image
+      const qrPaths = [
+        path.join(__dirname, '../assets/mirai_upi_qr.png'),
+        path.join(__dirname, '../../public/assets/mirai_upi_qr.png'),
+        'd:/PMS-APPLICATION/backend-pms/public/assets/mirai_upi_qr.png'
+      ];
+      const validQrPath = qrPaths.find(p => fs.existsSync(p));
+      if (validQrPath) {
+        doc.image(validQrPath, 224 + (145 - 68) / 2, footY + 22, { width: 68, height: 68 });
       }
 
-      // Terms & Conditions
-      const termsY = footY;
-      const termsX = 220;
-      doc.font('Helvetica-Bold').fontSize(8).fillColor('#1e293b').text('TERMS & CONDITIONS:', termsX, termsY);
-      doc.font('Helvetica').fontSize(7).fillColor(secondaryColor).text(
-        invoice.termsAndConditions || biz.defaultTerms || 'Subject to business jurisdiction. Thank you for your business.',
-        termsX,
-        termsY + 11,
-        { width: 180, lineBreak: true }
-      );
+      doc.font('Helvetica-Bold').fontSize(7).fillColor('#0f172a').text('UPI ID: miraicloudit@idfcbank', 228, footY + 95, { width: 137, align: 'center' });
+      doc.font('Helvetica').fontSize(6.5).fillColor('#64748b').text('Scan with GPay, PhonePe, Paytm', 228, footY + 107, { width: 137, align: 'center' });
 
-      // Signatory on Right
-      const sigX = 425;
-      const sigY = footY;
-      doc.font('Helvetica-Bold').fontSize(8).fillColor('#1e293b').text(`For ${biz.legalName || 'Authorized Business'}`, sigX, sigY, { width: 134, align: 'center' });
-      
-      doc.font('Helvetica-Oblique').fontSize(7.5).fillColor('#64748b').text('[ Digitally Generated ]', sigX, sigY + 30, { width: 134, align: 'center' });
+      // Card 3: Terms & Authorization (Right, x: 377, w: 182)
+      doc.rect(377, footY, 182, boxH).fillAndStroke('#f8fafc', borderColor);
+      doc.font('Helvetica-Bold').fontSize(8.5).fillColor('#1e3a8a').text('TERMS & CONDITIONS', 385, footY + 8, { width: 166 });
+
+      const termsText = invoice.termsAndConditions || biz.defaultTerms || '1. Goods/services once supplied will not be refunded.\n2. Payment should be made on or before due date.\n3. For billing support: info@miraiclouditservices.com';
+      doc.font('Helvetica').fontSize(6.8).fillColor('#475569').text(termsText, 385, footY + 22, { width: 166, lineBreak: true });
+
+      const sigY = footY + 70;
+      doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#1e293b').text(`For ${biz.legalName || 'MIRAI CLOUD IT SERVICES'}`, 385, sigY, { width: 166, align: 'center' });
+      doc.font('Helvetica-Oblique').fontSize(6.5).fillColor('#64748b').text('[ Digitally Generated ]', 385, sigY + 16, { width: 166, align: 'center' });
       const signName = biz.authorizedSignatory?.name || 'Authorized Signatory';
-      const signDesig = biz.authorizedSignatory?.designation || '';
-      doc.font('Helvetica-Bold').fontSize(8).fillColor('#0f172a').text(signName, sigX, sigY + 45, { width: 134, align: 'center' });
-      if (signDesig) {
-        doc.font('Helvetica').fontSize(7).fillColor(secondaryColor).text(signDesig, sigX, sigY + 55, { width: 134, align: 'center' });
-      }
+      doc.font('Helvetica-Bold').fontSize(7.5).fillColor('#0f172a').text(signName, 385, sigY + 30, { width: 166, align: 'center' });
 
       doc.end();
     } catch (err) {
